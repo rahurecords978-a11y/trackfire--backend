@@ -44,15 +44,26 @@ JSON STRUCTURE — return ONLY this, no markdown, no backticks:
   "Twitter/X": "Under 240 chars total. One sentence that hits like a gut punch. 2-3 hashtags only.",
   "Facebook": "Conversational, warm, community feel. Tell the story behind the feeling. 100-150 words. 5-8 hashtags.",
   "Press Release": "Third-person, 150 words. Cinematic opening sentence. Describe the sonic world, the emotional core, the artist vision. End with release info.",
-  "thumbnailPrompt": "A detailed AI image generation prompt for a YouTube thumbnail. Cinematic, atmospheric, no text in image. Should visually represent the emotional core of the song. Specific lighting, mood, scene, colors. Style: photorealistic or painterly cinematic.",
+  "thumbnailPrompt": "A detailed AI image generation prompt for a YouTube thumbnail. Cinematic, atmospheric, no text in image. Pull the ACTUAL scene from the lyrics — specific characters, locations, moments described in the song. Specific lighting, mood, colors. Style: photorealistic cinematic.",
   "bannerPrompt": "A detailed AI image prompt for a YouTube channel banner or social media header. Wide format. Dark, atmospheric, artistic. Represents the artist's world not just this song.",
-  "staticPostPrompt": "A detailed AI image prompt for a square Instagram/social media post. Striking visual, strong mood, could work as album art. Specific and evocative."
+  "staticPostPrompt": "A detailed AI image prompt for a square Instagram/social media post. Striking visual, strong mood, could work as album art. Specific and evocative.",
+  "scenes": [
+    {
+      "lyric": "the key lyric line or moment this scene represents",
+      "scene": "timestamp or song section (e.g. Intro, Verse 1, Chorus, Bridge)",
+      "imagePrompt": "A highly specific, cinematic AI image generation prompt for this exact lyric moment. Pull DIRECTLY from the story — real characters, real locations, real emotions described in the lyrics. Include: exact scene description, character details, setting, lighting, camera angle, mood, color palette. Make it specific enough to generate in Gemini, Canva AI or Midjourney. No text in image.",
+      "animationPrompt": "A short 1-2 sentence description of how this image should move/animate for a 5-10 second video clip. Describe camera movement, character movement, atmospheric effects (e.g. 'slow dolly push toward the figure, soft bokeh lights drifting in background')."
+    }
+  ]
 }
 
 CRITICAL RULES:
 - suggestedTitle must make someone stop and think "wait, is this about me?"
 - Instagram/TikTok copy should feel like it came from a mystical source, not a marketing team
-- Visual prompts must be specific enough to use directly in Midjourney or DALL-E
+- Visual prompts must pull DIRECTLY from the actual story and scenes in the lyrics — not generic/abstract
+- scenes array must have 8-12 entries covering the full song arc from intro to outro
+- Each scene imagePrompt must be different — no repeating the same visual
+- animationPrompt tells Suno or Canva AI exactly how to animate the still image
 - Never use words like: banger, fire, lit, slaps, hits different
 - Every piece of content should feel like the universe is sending a message through the music`;
 
@@ -102,7 +113,8 @@ CRITICAL RULES:
       visualPrompts: {
         thumbnail: result.thumbnailPrompt,
         banner: result.bannerPrompt,
-        staticPost: result.staticPostPrompt
+        staticPost: result.staticPostPrompt,
+        scenes: result.scenes || []
       }
     });
 
