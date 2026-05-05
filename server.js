@@ -8,22 +8,56 @@ app.use(cors());
 app.use(express.json());
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+const ARTIST_PROFILES = {
+  'DJ Akai': {
+    visualDNA: `DJ Akai is a hooded, mysterious street intellectual. Visual world: dark urban environments, city blueprints and sacred geometry overlays, leather jacket, aviator sunglasses, chains. Color palette: deep blue, electric red, dark charcoal, sparks of light. Cinematic style: noir, high contrast, cinematic street photography. Virgo energy — precise, analytical, powerful but controlled. Every visual should feel like a secret being revealed in a dark city at midnight.`,
+    narratorStyle: `DJ Akai narrates from a place of quiet power and street wisdom. He observes, he reflects, he knows more than he shows. First person — grounded, cool, never desperate. The man in the room who everyone notices but nobody fully knows.`,
+    contentTone: `Dark, intelligent, magnetic. Underground luxury. Speaks to people who think deeper than the surface. Never tries too hard.`
+  },
+  'AKXION': {
+    visualDNA: `AKXION are twin brothers — raw, rebellious, urban warriors. Visual world: graffiti walls, brick buildings, street steps, city rooftops at night, chain link fences. Colorful hair — blue and red/gold. Black tactical streetwear with gold chains and rings. Color palette: gritty urban tones, flashes of neon, raw concrete textures. Cinematic style: gritty street photography, handheld energy, young and dangerous.`,
+    narratorStyle: `AKXION narrates with dual energy — two voices, two perspectives, sometimes in harmony sometimes in tension. Young, raw, honest. Street poetry. They live what they sing.`,
+    contentTone: `Raw, real, rebellious. Speaks to young people navigating a world that wasn't built for them. K-pop energy meets street credibility.`
+  },
+  'House of Lunita': {
+    visualDNA: `House of Lunita is warm, golden, feminine divine. Visual world: beaches at sunset, golden hour light, ocean waves, flowers, natural landscapes, warm interiors with soft candle light. Curly hair, natural beauty, earth tones, gold jewelry. Color palette: warm amber, soft gold, ocean blue, sunset orange, cream. Cinematic style: warm film photography, soft focus, natural light, intimate and radiant.`,
+    narratorStyle: `House of Lunita narrates from the heart — open, vulnerable, powerful in her softness. She feels everything deeply and isn't afraid to show it. First person feminine — warm, honest, soulful.`,
+    contentTone: `Warm, soulful, healing. Speaks to people who lead with their heart. R&B soul meets natural spirituality.`
+  },
+  'Nocturnal Bliss': {
+    visualDNA: `Nocturnal Bliss lives in permanent darkness and gothic beauty. Visual world: foggy castles, dark forests, moonlit fields, black horses, abandoned places, candles in the dark, crumbling architecture. All black clothing, oversized dark coats, black sunglasses, chains. Color palette: pure black, deep grey, muted browns, cold moonlight silver, occasional blood red accent. Cinematic style: gothic horror meets high fashion editorial, desaturated, moody, haunting.`,
+    narratorStyle: `Nocturnal Bliss narrates from the shadows — detached, poetic, dark. Sees beauty in pain. Neither fully alive nor fully gone. First person — brooding, philosophical, uncomfortably honest.`,
+    contentTone: `Dark, poetic, alternative. Speaks to people who find comfort in the night. Gothic soul meets modern emo.`
+  },
+  'R.A.H.U.': {
+    visualDNA: `R.A.H.U. is the supergroup — all artists unified. Visual world: dark enchanted forests, moonlit castle ruins, ancient trees with twisted roots, mystical fog, occult symbols, collective power. Four figures standing together in darkness. Color palette: deep forest green, midnight black, moonlight silver, hints of gold. Cinematic style: epic fantasy meets dark mythology, wide shots, otherworldly atmosphere.`,
+    narratorStyle: `R.A.H.U. narrates as a collective consciousness — we, not I. Ancient, wise, powerful. Speaks for a generation that sees through the illusion. The voice of the awakened.`,
+    contentTone: `Mystical, powerful, unified. Speaks to the spiritually aware, the seekers, the ones who feel called to something bigger. R.A.H.U. = Respect, Authenticity, Honor, Uniqueness.`
+  }
+};
+
 app.post('/analyze', upload.single('audio'), async (req, res) => {
   try {
     const { trackTitle, artistName, lyrics } = req.body;
     const base64Audio = req.file.buffer.toString('base64');
     const fmt = req.file.mimetype.includes('wav') ? 'wav' : 'mp3';
 
-    const lyricsSection = lyrics
-      ? `\nLYRICS PROVIDED:\n${lyrics}\n\nUse the lyrics to understand the emotional story, themes, and narrative — this should DEEPLY inform the title, descriptions, and all content.`
+    const artistProfile = ARTIST_PROFILES[artistName] || null;
+    const artistSection = artistProfile
+      ? `\nARTIST PROFILE:\nVisual DNA: ${artistProfile.visualDNA}\nNarrator Style: ${artistProfile.narratorStyle}\nContent Tone: ${artistProfile.contentTone}\n\nAll visuals, scenes, and content MUST be filtered through this artist's specific visual world and narrator perspective.`
       : '';
 
-    const prompt = `You are a visionary music marketing strategist with the soul of a poet and the instincts of a viral content creator. You understand that the best music marketing doesn't describe the song — it makes people feel like the song found THEM at exactly the right moment.
+    const lyricsSection = lyrics
+      ? `\nLYRICS PROVIDED:\n${lyrics}\n\nBefore generating anything, identify:\n- WHO is the narrator? (gender, relationship to subject, emotional state)\n- What is the narrator's PERSPECTIVE? (watching from afar, confronting someone, reflecting alone, etc.)\n- What is the KEY VISUAL MOMENT in the song?\n- What does the narrator SEE, FEEL, and WANT?\n\nUse ALL of this to generate every visual from the NARRATOR'S point of view. Put the viewer IN the narrator's shoes.\n\nFor example: if the narrator is a man watching his ex at her wedding from the back of the room — one scene must show HIS VIEW of her across the room, another shows him standing alone with a drink trying not to be noticed, another shows his face watching her laugh. Tell the story from HIS eyes, not a third-party observer.`
+      : '';
 
-Listen to this track carefully. Then return ONLY a valid JSON object with these exact keys.${lyricsSection}
+    const prompt = `You are a visionary music marketing strategist, creative director, and music video storyboard artist. You make people feel like a song found THEM at exactly the right moment. You translate lyrics into cinematic scenes told from the narrator's perspective.
+
+Listen to this track. Return ONLY a valid JSON object.${artistSection}${lyricsSection}
 
 Artist: ${artistName || 'Independent Artist'}
 Track: ${trackTitle || 'Untitled'}
+Label: R.A.H.U. Records
 
 JSON STRUCTURE — return ONLY this, no markdown, no backticks:
 {
@@ -36,50 +70,46 @@ JSON STRUCTURE — return ONLY this, no markdown, no backticks:
   "instruments": "key instruments heard",
   "vibe": "one sentence vibe description",
   "targetAudience": "who this speaks to emotionally, not demographically",
-  "uniqueHook": "the one emotional truth this song captures that makes it unforgettable",
-  "suggestedTitle": "A scroll-stopping title that makes people feel like this song found them. NOT descriptive. EMOTIONAL. Think like a tarot card reading or a message from the universe. Examples: 'This Is For Everyone Who Loved Someone They Had To Let Go' or 'If This Song Found You Tonight, You Needed It'",
-  "Instagram": "4-6 lines with rhythm and line breaks. Mysterious, cinematic, emotionally magnetic. Speak to the feeling not the song. End with a call to feel something. Include 20-25 hashtags on a new line. Make people stop scrolling.",
-  "TikTok": "2-3 lines MAX. Open with 'if this found you' or 'this is for' energy. Ultra casual but hits deep. 15-20 trending hashtags.",
-  "YouTube": "150-200 word description. Open with the emotional story of the song — who it's for, what moment it captures. Then describe the sound. Then artist/label info. SEO-optimized but reads like a human wrote it with feeling.",
-  "Twitter/X": "Under 240 chars total. One sentence that hits like a gut punch. 2-3 hashtags only.",
-  "Facebook": "Conversational, warm, community feel. Tell the story behind the feeling. 100-150 words. 5-8 hashtags.",
-  "Press Release": "Third-person, 150 words. Cinematic opening sentence. Describe the sonic world, the emotional core, the artist vision. End with release info.",
-  "thumbnailPrompt": "A detailed AI image generation prompt for a YouTube thumbnail. Cinematic, atmospheric, no text in image. Pull the ACTUAL scene from the lyrics — specific characters, locations, moments described in the song. Specific lighting, mood, colors. Style: photorealistic cinematic.",
-  "bannerPrompt": "A detailed AI image prompt for a YouTube channel banner or social media header. Wide format. Dark, atmospheric, artistic. Represents the artist's world not just this song.",
-  "staticPostPrompt": "A detailed AI image prompt for a square Instagram/social media post. Striking visual, strong mood, could work as album art. Specific and evocative.",
+  "uniqueHook": "the one emotional truth this song captures",
+  "narratorPOV": "1-2 sentences: who is the narrator, their exact perspective, what they want",
+  "suggestedTitle": "Scroll-stopping, emotionally magnetic title. Like a tarot reading or message from the universe. Makes people think 'wait, is this about me?'",
+  "Instagram": "4-6 punchy lines with rhythm. Cinematic, magnetic. Speak to the feeling. 20-25 hashtags on new line.",
+  "TikTok": "2-3 lines MAX. 'if this found you' or 'this is for' energy. 15-20 trending hashtags.",
+  "YouTube": "150-200 words. Opens with emotional story. Describes sound. Includes artist and R.A.H.U. Records. SEO-optimized but human.",
+  "Twitter/X": "Under 240 chars. One gut-punch sentence. 2-3 hashtags.",
+  "Facebook": "Conversational, warm, community. 100-150 words. 5-8 hashtags.",
+  "Press Release": "Third-person, 150 words. Cinematic opening. Sonic world, emotional core, artist vision. Ends with R.A.H.U. Records.",
+  "thumbnailPrompt": "The single most powerful visual moment from the NARRATOR's perspective. Exact scene from lyrics. Character details, setting, lighting, camera angle. Photorealistic cinematic. Filtered through artist visual DNA. No text.",
+  "bannerPrompt": "Wide format. Artist's entire visual world. Pull from artist visual DNA. Dark, atmospheric, cinematic. No text.",
+  "staticPostPrompt": "Square. Striking moment from the song as album art. Artist visual DNA. No text.",
   "scenes": [
     {
-      "lyric": "the key lyric line or moment this scene represents",
-      "scene": "timestamp or song section (e.g. Intro, Verse 1, Chorus, Bridge)",
-      "imagePrompt": "A highly specific, cinematic AI image generation prompt for this exact lyric moment. Pull DIRECTLY from the story — real characters, real locations, real emotions described in the lyrics. Include: exact scene description, character details, setting, lighting, camera angle, mood, color palette. Make it specific enough to generate in Gemini, Canva AI or Midjourney. No text in image.",
-      "animationPrompt": "A short 1-2 sentence description of how this image should move/animate for a 5-10 second video clip. Describe camera movement, character movement, atmospheric effects (e.g. 'slow dolly push toward the figure, soft bokeh lights drifting in background')."
+      "lyric": "exact lyric line this scene represents",
+      "section": "Intro / Verse 1 / Pre-Chorus / Chorus / Verse 2 / Bridge / Outro",
+      "narratorView": "what the narrator is doing/seeing/feeling in this exact moment",
+      "imagePrompt": "Highly specific cinematic prompt from NARRATOR's POV. Exact scene from lyrics. Character description, setting, lighting, camera angle, color palette, emotional atmosphere. Filtered through artist visual DNA. Minimum 3 sentences. No text in image.",
+      "animationPrompt": "1-2 sentences for Suno/Canva video. Specific camera movement and atmospheric motion."
     }
   ]
 }
 
 CRITICAL RULES:
-- suggestedTitle must make someone stop and think "wait, is this about me?"
-- Instagram/TikTok copy should feel like it came from a mystical source, not a marketing team
-- Visual prompts must pull DIRECTLY from the actual story and scenes in the lyrics — not generic/abstract
-- scenes array must have 8-12 entries covering the full song arc from intro to outro
-- Each scene imagePrompt must be different — no repeating the same visual
-- animationPrompt tells Suno or Canva AI exactly how to animate the still image
-- Never use words like: banger, fire, lit, slaps, hits different
-- Every piece of content should feel like the universe is sending a message through the music`;
+- narratorPOV identified first, informs everything
+- ALL scenes from NARRATOR's perspective — what they see and feel
+- Must include shots of narrator observing from their vantage point
+- 8-12 scenes covering full song arc
+- Each scene visually distinct
+- Every visual filtered through artist visual DNA
+- Never use: banger, fire, lit, slaps, hits different
+- R.A.H.U. Records in YouTube and Press Release`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-audio-preview',
       messages: [{
         role: 'user',
         content: [
-          {
-            type: 'input_audio',
-            input_audio: { data: base64Audio, format: fmt }
-          },
-          {
-            type: 'text',
-            text: prompt
-          }
+          { type: 'input_audio', input_audio: { data: base64Audio, format: fmt } },
+          { type: 'text', text: prompt }
         ]
       }]
     });
@@ -100,6 +130,7 @@ CRITICAL RULES:
         vibe: result.vibe,
         targetAudience: result.targetAudience,
         uniqueHook: result.uniqueHook,
+        narratorPOV: result.narratorPOV,
         suggestedTitle: result.suggestedTitle
       },
       campaign: {
