@@ -3,18 +3,58 @@ const cors = require('cors');
 const OpenAI = require('openai');
 const multer = require('multer');
 const upload = multer();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.post('/analyze', upload.single('audio'), async (req, res) => {
   try {
-    const { trackTitle, artistName } = req.body;
+    const { trackTitle, artistName, lyrics } = req.body;
     const base64Audio = req.file.buffer.toString('base64');
     const fmt = req.file.mimetype.includes('wav') ? 'wav' : 'mp3';
+
+    const lyricsSection = lyrics
+      ? `\nLYRICS PROVIDED:\n${lyrics}\n\nUse the lyrics to understand the emotional story, themes, and narrative — this should DEEPLY inform the title, descriptions, and all content.`
+      : '';
+
+    const prompt = `You are a visionary music marketing strategist with the soul of a poet and the instincts of a viral content creator. You understand that the best music marketing doesn't describe the song — it makes people feel like the song found THEM at exactly the right moment.
+
+Listen to this track carefully. Then return ONLY a valid JSON object with these exact keys.${lyricsSection}
+
+Artist: ${artistName || 'Independent Artist'}
+Track: ${trackTitle || 'Untitled'}
+
+JSON STRUCTURE — return ONLY this, no markdown, no backticks:
+{
+  "genre": "primary genre",
+  "subgenre": "subgenre",
+  "mood": ["mood1", "mood2"],
+  "energy": "energy level",
+  "tempo": "tempo description",
+  "themes": ["theme1", "theme2"],
+  "instruments": "key instruments heard",
+  "vibe": "one sentence vibe description",
+  "targetAudience": "who this speaks to emotionally, not demographically",
+  "uniqueHook": "the one emotional truth this song captures that makes it unforgettable",
+  "suggestedTitle": "A scroll-stopping title that makes people feel like this song found them. NOT descriptive. EMOTIONAL. Think like a tarot card reading or a message from the universe. Examples: 'This Is For Everyone Who Loved Someone They Had To Let Go' or 'If This Song Found You Tonight, You Needed It'",
+  "Instagram": "4-6 lines with rhythm and line breaks. Mysterious, cinematic, emotionally magnetic. Speak to the feeling not the song. End with a call to feel something. Include 20-25 hashtags on a new line. Make people stop scrolling.",
+  "TikTok": "2-3 lines MAX. Open with 'if this found you' or 'this is for' energy. Ultra casual but hits deep. 15-20 trending hashtags.",
+  "YouTube": "150-200 word description. Open with the emotional story of the song — who it's for, what moment it captures. Then describe the sound. Then artist/label info. SEO-optimized but reads like a human wrote it with feeling.",
+  "Twitter/X": "Under 240 chars total. One sentence that hits like a gut punch. 2-3 hashtags only.",
+  "Facebook": "Conversational, warm, community feel. Tell the story behind the feeling. 100-150 words. 5-8 hashtags.",
+  "Press Release": "Third-person, 150 words. Cinematic opening sentence. Describe the sonic world, the emotional core, the artist vision. End with release info.",
+  "thumbnailPrompt": "A detailed AI image generation prompt for a YouTube thumbnail. Cinematic, atmospheric, no text in image. Should visually represent the emotional core of the song. Specific lighting, mood, scene, colors. Style: photorealistic or painterly cinematic.",
+  "bannerPrompt": "A detailed AI image prompt for a YouTube channel banner or social media header. Wide format. Dark, atmospheric, artistic. Represents the artist's world not just this song.",
+  "staticPostPrompt": "A detailed AI image prompt for a square Instagram/social media post. Striking visual, strong mood, could work as album art. Specific and evocative."
+}
+
+CRITICAL RULES:
+- suggestedTitle must make someone stop and think "wait, is this about me?"
+- Instagram/TikTok copy should feel like it came from a mystical source, not a marketing team
+- Visual prompts must be specific enough to use directly in Midjourney or DALL-E
+- Never use words like: banger, fire, lit, slaps, hits different
+- Every piece of content should feel like the universe is sending a message through the music`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-audio-preview',
@@ -27,29 +67,17 @@ app.post('/analyze', upload.single('audio'), async (req, res) => {
           },
           {
             type: 'text',
-            text: `You are a music marketing expert. Listen to this song and return ONLY a JSON object with these exact keys:
-- genre, subgenre, mood (array), energy, tempo, themes (array), instruments, vibe, targetAudience, uniqueHook
-- Instagram: caption with hashtags
-- TikTok: punchy hook + hashtags
-- YouTube: SEO description 100-150 words
-- Twitter/X: tweet under 280 chars
-- Facebook: community post 100-150 words
-- Press Release: third-person paragraph 100-150 words
-
-Artist: ${artistName || 'Independent Artist'}
-Track: ${trackTitle || 'Untitled'}
-
-Pure JSON only, no markdown.`
+            text: prompt
           }
         ]
       }]
     });
 
-    const raw = response.choices[0].message.content.replace(/```json|```/g,'').trim();
+    const raw = response.choices[0].message.content.replace(/```json|```/g, '').trim();
     const result = JSON.parse(raw);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       analysis: {
         genre: result.genre,
         subgenre: result.subgenre,
@@ -60,7 +88,8 @@ Pure JSON only, no markdown.`
         instruments: result.instruments,
         vibe: result.vibe,
         targetAudience: result.targetAudience,
-        uniqueHook: result.uniqueHook
+        uniqueHook: result.uniqueHook,
+        suggestedTitle: result.suggestedTitle
       },
       campaign: {
         Instagram: result.Instagram,
@@ -69,6 +98,11 @@ Pure JSON only, no markdown.`
         'Twitter/X': result['Twitter/X'],
         Facebook: result.Facebook,
         'Press Release': result['Press Release']
+      },
+      visualPrompts: {
+        thumbnail: result.thumbnailPrompt,
+        banner: result.bannerPrompt,
+        staticPost: result.staticPostPrompt
       }
     });
 
